@@ -24,11 +24,38 @@ app.MapGet("frases", async () => await new HttpClient().GetStringAsync("https://
 
 app.MapGet("/tasks", async (AppDbContext db) => { return await db.Tasks.ToListAsync(); });
 
-app.MapPost("/Tasks", async (Task task, AppDbContext db) => 
-{ 
+app.MapGet("tasks/{id}", async (int id, AppDbContext db) => await db.Tasks.FindAsync(id) is Task task ? Results.Ok(task) : Results.NotFound());
+
+app.MapGet("/tasks/completed", async (AppDbContext db) => { return await db.Tasks.Where(t => t.IsCompleted).ToListAsync(); });
+
+app.MapPut("/tasks/{id}", async (int id, Task inputTask, AppDbContext db) =>
+{
+    var task = await db.Tasks.FindAsync(id);
+    if (task is null) return Results.NotFound();
+
+    task.Name = inputTask.Name;
+    task.IsCompleted = inputTask.IsCompleted;
+
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+});
+
+app.MapPost("/tasks", async (Task task, AppDbContext db) =>
+{
     db.Tasks.Add(task);
     await db.SaveChangesAsync();
     return Results.Created($"/tasks/{task.Id}", task);
+});
+
+app.MapDelete("/tasks/{id}", async (int id, AppDbContext db) =>
+{
+    if (await db.Tasks.FindAsync(id) is Task task)
+    {
+        db.Tasks.Remove(task);
+        await db.SaveChangesAsync();
+        return Results.Ok(task);
+    }
+    return Results.NotFound();
 });
 
 app.Run();
